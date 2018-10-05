@@ -1,0 +1,165 @@
+---
+title: "Produtório das Verossimilhanças de Poisson"
+output:
+  html_document:
+    df_print: paged
+    theme: flatly
+    highlight: tango
+css: style.css    
+---
+Baseado na página 6 da apostila Verossimilhança e Maxima Verossimiulhança do professor João Luís F. Batista: http://cmq.esalq.usp.br/BIE5781/lib/exe/fetch.php?media=leituras:verossim.pdf
+
+
+```{r pisson, echo=FALSE, fig.cap="Legenda", out.width = '60%'}
+knitr::include_graphics("https://www.umass.edu/wsp/images/poisson3.gif")
+```
+[Link Google](https://www.google.com)
+
+```{r child='regressoes_aae_autuacoes.Rmd', echo=TRUE}
+```
+
+
+##Simulação dos dados  
+
+Criamos uma amostra de n=10
+```{r, echo=TRUE}
+dados <- c(24, 27, 23, 28, 26, 24, 17, 23, 24, 27)
+```
+
+##Verossimilhança das observações
+
+Obtemos o valor da função da verossimilhança de cada x para (mu= 16)
+```{r}
+mu = 16
+a<- as.data.frame( sapply(dados, dpois, mu), row.names = NULL, optional = FALSE); 
+names(a) <- "a"
+head(a)
+```
+
+
+Obtemos o valor da função da verossimilhança de cada x para (mu= 35)
+```{r, echo=TRUE}
+mu = 35
+b<- as.data.frame( sapply(dados, dpois, mu), row.names = NULL, optional = FALSE); 
+names(b) <- "b"
+head(b)
+```
+
+Obtemos o produtório da verossimilhança das obserações
+```{r}
+proda <- prod(a$a)
+prodb <- prod(b$b)
+prodab <- as.data.frame(cbind(proda, prodb))
+prodab
+```
+
+
+## Dataset
+Criamos um data frame com os resultados obtidos para mu 16 e 35
+```{r}
+ab <- as.data.frame(cbind(a$a, b$b))
+names(ab) <- c("mu = 16", "mu = 35")
+ab
+```
+
+
+```{r}
+nplantas <- c(24, 27, 23, 28, 26, 24, 17, 23, 24, 27)
+graf1 = as.data.frame(cbind(a, b, nplantas))
+graf1 = unique(graf1)
+graf1 = graf1[order(graf1$nplantas),c(1,2,3)]
+graf1
+plot(graf1$nplantas, graf1$a, type = "b", frame = FALSE, pch = 19, col = "red", xlab = "Nº Plantas", ylab = "P(x) para mu= 16")
+
+plot(graf1$nplantas, graf1$b, type = "b", frame = FALSE, pch = 19, col = "red", xlab = "Nº Plantas", ylab = "P(x) para mu= 35")
+
+#http://www.leg.ufpr.br/~paulojus/embrapa/Rembrapa/Rembrapase16.html
+lik.pois <- function(lambda, dados) { 
+       loglik <- function(l, dados) { 
+           sum(dpois(dados, lambda = l, log = TRUE)) 
+       } 
+       sapply(lambda, loglik, dados = dados) 
+}
+lambda.vals <- seq(16, 28, l = 101) 
+loglik <- sapply(lambda.vals, lik.pois, dados = nplantas)
+plot(lambda.vals, loglik, ty = "l")
+
+plot(lambda.vals, loglik, type = "l", xlab = expression(lambda), 
+       ylab = expression(l(lambda)))
+
+ curve(lik.pois(x, dados = nplantas), 16, 28, xlab = expression(lambda), ylab = expression(l(lambda)))
+ 
+dev.pois <- function(lambda, dados) { 
+       lambda.est <- mean(dados) 
+       lik.lambda.est <- lik.pois(lambda.est, dados = dados) 
+       lik.lambda <- lik.pois(lambda, dados = dados) 
+       return(-2 * (lik.lambda - lik.lambda.est)) 
+} 
+curve(dev.pois(x, dados = nplantas), 16, 28, xlab = expression(lambda), 
+       ylab = expression(D(lambda)))
+
+ curve(dev.pois(x, dados = nplantas), 14, 30, xlab = expression(lambda), 
+       ylab = expression(l(lambda)))
+```
+
+Sigma = x e portanto pode ser obtido diretamente:
+```{r}
+lambda.est <- mean(nplantas) 
+
+lambda.est
+
+curve(dev.pois(x, dados = nplantas), 14, 30, xlab = expression(lambda), 
+     ylab = expression(l(lambda))) 
+
+L.95 <- qchisq(0.95, df = 1) 
+
+abline(h = L.95)
+
+lim.fc <- function(lambda) dev.pois(lambda, dados = nplantas) - L.95 
+
+ic2.lambda <- c(inf = uniroot(lim.fc, c(0, lambda.est))$root, sup = uniroot(lim.fc, 
+     c(lambda.est, max(nplantas)))$root) 
+ic2.lambda
+
+arrows(ic2.lambda, L.95, ic2.lambda, 0, len = 0.1) 
+ text(ic2.lambda, 0, round(ic2.lambda, dig = 2), pos = 1, cex = 0.8, offset = 0.1)
+
+```
+
+
+
+Acrescentamos o produtório das amostras ao final do dataset
+```{r}
+a <- c(a$a, proda)
+b <- c(b$b, prodb)
+col1 = c("Observação 01", "Observação 02", "Observação 03", "Observação 04", "Observação 05", "Observação 06", "Observação 07", "Observação 08", "Observação 09", "Observação 10", "Produtório")
+final <- as.data.frame(cbind(col1, a, b))
+names(final) <- c("Itens", "mu = 16", "mu = 35")
+final
+```
+
+
+```{r}
+names(prodab) <- c("mu = 16", "mu = 35")
+prodab
+ifelse((proda > prodb), "mu 16 é mais verossímil",  "mu 35 é mais verossímil")
+```
+
+
+##Log de Verossimilhança Negativa
+
+```{r, echo=TRUE}
+datalog = as.data.frame(cbind(-log(proda), -log(prodb)))
+datalog
+ifelse((datalog$V1 < datalog$V2), "mu 16 é mais verossímil",  "mu 35 é mais verossímil")
+```
+
+
+
+
+##A Dúvida
+
+O produtório  da verossimilhança das observações obtidas foi "1.570865e-20" e "1.938949e-20" para mu 16 e 35 respectivamente; no entando, os resultados da apostila são "2.2574e-22" e "2.2500e-22".  
+Qual o erro na tentativa de obtenção do produtório? 
+
+
